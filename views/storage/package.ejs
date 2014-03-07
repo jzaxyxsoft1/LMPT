@@ -1,0 +1,195 @@
+<% include ../Top.ejs %>
+<div class="wp100 hp100" id="d_menu">
+    <div class="ac" style="margin-top: 12%">
+        <input type="button" value="新建入库单" onclick="setPTYPE(true)"/>
+        <input type="button" value="选择入库单" onclick="setPTYPE(false)"/>
+    </div>
+</div>
+<div class="wp100 hp100 hide" id="d_mmc">
+    <div id="d_s" class="hide">
+        <b class="ml10">产品:</b><select id="slt_product"></select>
+        <b class="ml10">批号:</b><input type="text" id="txt_batchNum"/>
+        <b class="ml10">生产日期:</b><input type="text" id="txt_prduceTime"/>
+        <b>每包装包含 </b><input type="text" id="txt_ppAmount" style="width:30px;"/><b>个产品 </b>
+        <input type="button" value="确定" onclick="setProducts()"/>
+        <input type="text" id="txt_Code"/>
+    </div>
+    <div class="wp100 hp95">
+        <div class="hp100 fl pp1 hide" style="width:20%" id="d_packages">
+            <div class="ac">
+                <input type="button" value="新建包装" onclick="addP()"/>
+                <input type="button" value="保存" onclick="save()"/>
+            </div>
+            <div>
+                <span class="hide ml10 fred bold  spn_alerm" id="err_NPK">*包装未扫码!</span>
+                <span class="hide ml10 fred bold spn_alerm" id="err_Ful">*包装已满!</span>
+            </div>
+            <ul class="wp100 hp90 oya" data-bind="foreach:$data">
+                <li class="lh22"><a data-bind="text:_id,click:showPros"></a></li>
+            </ul>
+        </div>
+        <div class="hp100 oya fr pp1 hide" style="width:75%" id="d_pros">
+            <h3>包装序号:<span data-bind="text:_id"></span></h3>
+
+            <div class="wp100 hp90 lh22" data-bind="foreach:Items">
+                <a class="ml10"> <b data-bind="text:RelativeObj.Item2"></b>:<span data-bind="text:_id"></span></a>
+            </div>
+        </div>
+    </div>
+</div>
+<audio src="/sounds/WoopAlerm.mp3" id="alrm" volume="1" loop="loop" style=" display: none;"></audio>
+<script type="text/javascript">
+    var org = {Name: '<%=u.Org.Name%>', Value: '<%=u.Org.Value%>'};
+    var u = {_id: '<%=u._id%>',Name: '<%=u.Name%>', Org: org};
+</script>
+<script src="/javascripts/KOExt.js"></script>
+<script type="text/javascript">
+    var ppA = 0, packages = ko.mapping.fromJS([]), audio = document.getElementById('alrm');
+    audio.addEventListener('play', function () {
+        GV.audioPlaying = true;
+    });
+    audio.addEventListener('pause',function(){
+        $('#err_NPK').hide();
+        $('#err_Ful').hide();
+    });
+    function setPTYPE(flg) {
+        GV.createStockInBill = flg;
+        showPnl('d_mmc');
+    }
+    $.getJSON('/product/get', {t: 'objs' }, function (ds) {
+        GV.pros = ds;
+        var _s = '';
+        ds.forEach(function (i) {
+            _s = _s + '<option value="' + i._id + '">' + i.Name + '</option>';
+        });
+        $('#txt_prduceTime').val(Date.ToDateTimeString(new Date, false, '-'));
+        $('#slt_product').html(_s);
+        $('#d_s').show();
+        $('#mainContainer').height(WS.h-30).show();
+    });
+    ko.applyBindings(packages, document.getElementById('d_packages'));
+    function addP() {
+        if (GV.currentPackage && !GV.currentPackage._id()) {
+            audio.play();
+            $('ero_NPK').show();
+            return;
+        }
+        if (GV.currentPackage && GV.currentPackage.Items().length > 0) {
+            packages.push(ko.mapping.fromJS(ko.mapping.toJS(GV.currentPackage)));
+            audio.pause();
+            $('#err_Ful').hide();
+        }
+        var _o = ko.mapping.fromJS({_id: '', Items: [], flag: 1});
+        showPros(_o);
+    }
+    function showPros(d) {
+        var _o = ko.mapping.toJS(d);
+        if (GV.currentPackage) {
+            ko.mapping.fromJS(_o, GV.currentPackage);
+        }
+        else {
+            GV.currentPackage = ko.mapping.fromJS(_o);
+            ko.applyBindings(GV.currentPackage, document.getElementById('d_pros'));
+            $('#d_pros').show();
+        }
+        setFocus();
+    }
+    function setFocus() {
+        $('#txt_Code').val('').focus();
+    }
+    var kv;
+    var setProducts = function () {
+        ppA = Number($('#txt_ppAmount').val());
+        var _s = $('#slt_product option:selected') || $('#slt_product option:first');
+        GV.currentProduct = {RelativeObj: {Item1: _s.val(), Item2: _s.text(), Item3: 'Product'}, BatchNum: $('#txt_batchNum').val(), ProduceTime: $('#txt_prduceTime').val()};
+        $('#d_packages').show();
+    }
+    GV.proCounts = 0;
+    $('#txt_Code').on('keydown', function (e) {
+        if (e.keyCode == 13 || e.keyCode == 108) {
+            if (GV.audioPlaying) {
+                GV.audioPlaying = false;
+                audio.pause();
+
+            }
+            kv = e.target.value;
+            if (kv == '000000') {
+                addP();
+                return;
+            }
+            if (kv.length < 12) {
+                //包装
+                GV.currentPackage._id(kv);
+            }
+            else {
+                //产品
+                if (GV.currentPackage.Items().length == ppA) {
+                    audio.play();
+                    $('#err_Ful').show();
+                }
+                else {
+                    GV.proCounts++;
+                    GV.currentPackage.Items.push({_id: kv, RelativeObj: GV.currentProduct.RelativeObj, BatchNum: GV.currentProduct.BatchNum, ProduceTime: GV.currentProduct.ProduceTime});
+                }
+            }
+            e.target.value = '';
+            $(e.target).focus();
+        }
+    })
+    function save() {
+        if (!GV.currentPackage._id()) {
+            audio.play();
+            $('#err_NPK').show();
+            return;
+        }
+        if (!_.any(packages, function (i) {return i._id() == GV.currentPackage._id()})) {
+            packages.push(GV.currentPackage);
+        }
+        var pks = ko.mapping.toJS(packages);
+        pks = pks.filter(function (i) {
+            return i.Items.length > 0;
+        });
+        loading.show();
+        if (GV.createStockInBill) {
+            if (window.confirm('产品:' + GV.currentProduct.RelativeObj.Item2 + '\r数量:' + GV.proCounts + '\r是否新建入库单?')) {
+                var stockIn = new StockBill('StockIn', org, u);
+                var _p = _.find(GV.pros, function (i) {return i._id == GV.currentProduct.RelativeObj.Item1});
+                var itm = new StockBillItem({Item1:_p._id,Item2:_p.Name,Item3:'Product' }, _p.UnitCost, GV.proCounts, _p.Model, _p.Unit, true);
+                stockIn.Items.push(itm);
+                var m = ko.mapping.toJS(stockIn);
+                _.each(m.Items, function (i) {
+                    i.Amount = Number(i.Amount);
+                    i.UnitCost = Number(i.UnitCost);
+                });
+                $.post('/base/postsave', {tp: 'StockIn', obj: JSON.stringify(m)}, function (d) {
+
+                    alert(d.error || '保存成功!');
+                    if (d.msg) {
+                        ps(pks , d.ID);
+                    }
+                });
+            }
+        }
+        else {
+            ps(pks);
+        }
+    }
+    function ps(pks,stockInBillId) {
+        $.post('/storage/post', {t: 'savepackages', objs: JSON.stringify(pks),iId:stockInBillId}, function (d) {
+            loading.hide();
+            showPnl('d_menu');
+        });
+    }
+    function n() {
+        GV.createStockInBill = false;
+        GV.proCounts = 0;
+        $('input[type=text]').val('');
+        $('#txt_prduceTime').val(Date.ToDateTimeString(new Date, false, '-'));
+        $('#d_packages').hide();
+        $('#d_pros').hide();
+        packages.removeAll();
+        GV.currentPackage = null;
+        showPnl('d_menu');
+    }
+</script>
+<% include ../Bottom.ejs %>

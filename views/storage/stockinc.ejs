@@ -1,0 +1,218 @@
+<% include ../Top.ejs %>
+
+<div class="wp100 hp100 oya hide" id="d_list">
+    <table cellspacing="0" cellpadding="0" class="wp98 mc " id="tbl_bill">
+    </table>
+    <div class="ac pt10">
+        <b>当前库房:</b> <span id="spn_stockName"></span><input class="ml10" type="button" onclick="showPnl('d_stock')"
+                                                            value="更改库房"/>
+    </div>
+</div>
+<div class="wp100 hp100 oya hide" id="d_edit">
+    <div class="mt10 mc editor-container" id="d_detail">
+        <div class="mc mt10">
+            <div class="editor-label"> 单号:</div>
+            <div class="editor-field"><span data-bind="text:BillNum"></span></div>
+            <div class="editor-label">订单号:</div>
+            <div class="editor-field"><span data-bind="text:OrderID"></span></div>
+            <!--<div class="editor-label">供应商:</div>-->
+            <!--<div class="editor-field"><span data-bind="text:Provider.Item2"></span></div>-->
+            <div class="editor-label">建单时间:</div>
+            <div class="editor-field"><span data-bind="text:CreateTime.Item1"></span></div>
+            <div class="editor-label">建单人:</div>
+            <div class="editor-field"><span data-bind="text:Creator.Item2"></span></div>
+            <!--<div class="editor-label">金额:</div>-->
+            <!--<div class="editor-field"><span data-bind="text:Sum"></span></div>-->
+            <div class="editor-label">状态</div>
+            <div class="editor-field"><span data-bind="text:Status"></span></div>
+        </div>
+        <div class="hr" style="height: 10px;"></div>
+        <fieldset class="mc pp1 wp98">
+            <legend><strong>单据内容:</strong></legend>
+            <table cellspacing="0" cellpadding="0" class="wp98 mc">
+                <thead>
+                <tr>
+                    <td>产品</td>
+                    <td>规格</td>
+                    <td>单位</td>
+                    <td>数量</td>
+                    <td>单价</td>
+                    <td>金额</td>
+                    <td>完成数量</td>
+                    <td>库房</td>
+                    <td>状态</td>
+                </tr>
+                </thead>
+                <tbody data-bind="foreach:Items">
+                <tr data-bind="css:{\'even\':$index()%2!=0}">
+                    <td data-bind="text:RelativeObj.Item2"></td>
+                    <td data-bind="text:Model"></td>
+                    <td data-bind="text:Unit"></td>
+                    <td data-bind="text:Amount"></td>
+                    <td data-bind="text:UnitCost"></td>
+                    <td data-bind="text:Cost"></td>
+                    <td data-bind="text:CompleteAmount"></td>
+                    <td data-bind="text:Stock.Name"></td>
+                    <td data-bind="text:Status"></td>
+                </tr>
+                </tbody>
+            </table>
+        </fieldset>
+    </div>
+    <div class="ac cb pt10">
+        <input type="text" id="txt_code"/>
+        <input type="button" value="确定" onclick="save()"/>
+        <input type="button" value="返回" onclick="showPnl('d_list')"/>
+    </div>
+</div>
+
+<div class=" wp100 hp100" id="d_stock">
+    <div class="ac wp100" style="margin-top: 12%">
+        <b>入库库房:</b><select id="slt_stock"></select><input type="button" value="确定" onclick="setStock()"/>
+    </div>
+</div>
+<audio src="/sounds/WoopAlerm.mp3" id="alrm" volume="1" style=" display: none;"></audio>
+<script src="/javascripts/KOExt.js"></script>
+<script type="text/javascript">
+    $('#tbl_bill').StockBillTable('dSlt');
+    $('#d_detail').StockBillDetail();
+    var audio = document.getElementById('alrm');
+    audio.addEventListener('play', function () {
+        GV.audioPlaying = true;
+    });
+    function alrm(msg) {
+        alert(msg);
+        audio.play();
+    }
+    function stopAlrm() {
+        if (GV.audioPlaying) {
+            GV.audioPlaying = false;
+            audio.pause();
+        }
+    }
+    var bill = new StockBill();
+    ko.applyBindings(bill, document.getElementById('d_detail'));
+    $.getJSON('/base/getobjs', {tp: 'Stock', m: 1, query: {}, option: {Name: 1}}, function (d) {
+        d.forEach(function (i) {
+            $('#slt_stock').append('<option value="' + i._id + '">' + i.Name + '</option>');
+        });
+        $('#slt_stock option:first').select();
+        $('#mainContainer').show();
+    });
+    function setStock() {
+        var _t = $('#slt_stock option:selected').length ? $('#slt_stock option:selected') : $('#slt_stock option:first');
+        GV.stock = {Name: _t.text(), Value: _t.val()};
+        $('#spn_stockName').text(_t.text());
+        bindList();
+    }
+    function bindList() {
+        $.getJSON('/base/getobjs', {tp: 'StockIn', query: {Status: {$ne: '已完成'}}}, function (d) {
+            if (GV.list) {
+                ko.mapping.fromJS(d, GV.list);
+            }
+            else {
+                GV.list = ko.mapping.fromJS(d);
+                ko.applyBindings(GV.list, document.getElementById('d_list'));
+            }
+            showPnl('d_list');
+        });
+    }
+    function dSlt(d) {
+        $.getJSON('/base/getobj', {tp: 'StockIn', query: {_id: d._id()}}, function (d) {
+            bill.updateFromObj(d);
+            showPnl('d_edit');
+            $('txt_code').focus();
+        });
+    }
+    function save() {
+        checkBillStatus();
+        var m = ko.mapping.toJS(bill);
+        _.each(m.Items, function (i) {
+            i.Amount = Number(i.Amount);
+            i.CompleteAmount = Number(i.CompleteAmount);
+            i.UnitPrice = Number(i.UnitPrice);
+        });
+        $.post('/storage/poststockinc', {t: 'stockinconfirm', obj: JSON.stringify(m)}, function (d) {
+            alert(d.error || '入库确认完成!');
+            if (d.msg) {
+                bindList();
+            }
+        });
+    }
+    var kv;
+    $('#txt_code').on('keydown', function (e) {
+        if (e.keyCode == 13 || e.keyCode == 108) {
+            stopAlrm();
+            kv = e.target.value;
+            if (kv.length < 12) {
+                //包装
+                $.getJSON('/base/getobj', {tp: 'Package', query: {_id: kv}}, function (d) {
+                    if (_.any(d.Items, function (i) {return _.any(bill.Items(), function (bi) {return bi.RelativeObj.Item1() != i.RelativeObj.Item1;})})) {
+                        alrm('包装内容与入库单不符!');
+                        return;
+                    }
+                    var _ps = _.chain(d.Items).
+                            countBy(function (i) {return i.RelativeObj.Item1})
+                            .ToArray().value();
+                    for (var i = 0; i < _ps.length; i++) {
+                        var ii = _.find(bill.Items(), function (iti) { return iti.RelativeObj.Item1() == _ps[i].key;});
+                        if (ii && (ii.CompleteAmount() + _ps[i].value) > ii.Amount()) {
+                            alrm('包装数量超额!');
+                            return;
+                        }
+                    }
+                    _.each(d.Items, function (i) {
+                        setItemVal(i.RelativeObj.Item1, 1);
+                    });
+                });
+            }
+            else {
+                //产品
+                $.getJSON('/base/getobj', {tp: 'Package', query: {Items: {$elemMatch: {'_id': kv}}}}, function (d) {
+                    var _l = _.find(d.Items, function (i) {
+                        return i._id == kv;
+                    });
+                    setItemVal(_l.RelativeObj.Item1, 1);
+                });
+            }
+            e.target.value = '';
+            e.target.focus();
+        }
+    });
+    var ca;
+    function setItemVal(itmID, amount) {
+        var _p = _.find(bill.Items(), function (i) {
+            return i.RelativeObj.Item1() == itmID;
+        });
+        if (_p == null) {
+            alrm('产品错误!');
+            return;
+        }
+        _p.Stock = GV.stock;
+        ca = _p.CompleteAmount() + amount;
+        if (ca > _p.Amount()) {
+            alrm('数量超额!');
+            return;
+        }
+//        _p.Stock.Name(GV.stock.Name);
+//        _p.Stock.Value(GV.stock.Value);
+        _p.Stock = GV.stock;
+        _p.CompleteAmount(ca);
+        checkBillStatus();
+    }
+    function checkBillStatus() {
+        if (_.any(bill.Items(), function (i) {
+            return i.Status() == '执行中'
+        })) {
+            bill.Status('执行中');
+        }
+        else if (!_.any(bill.Items(), function (i) {
+            return i.Status() != '已完成'
+        })) {
+            bill.Status('已完成');
+        }
+    }
+
+</script>
+
+<% include ../Bottom.ejs %>

@@ -1,0 +1,262 @@
+<% include ../Top.ejs %>
+<script type="text/javascript" src="/javascripts/KOExt.js"></script>
+<script type="text/javascript">
+
+</script>
+<% if(!isMobile){ %>
+<div class="editor-container">
+    <div id="d_edit" class="wp100 hp100 oya hide">
+        <div class="mc mt10 editor-container">
+            <div class="editor-label">单号:</div>
+            <div class="editor-field"><span data-bind="text:BillNum"></span></div>
+            <div class="editor-label">状态:</div>
+            <div class="editor-field"><span data-bind="text:Status"></span></div>
+            <div class="editor-label">经销商:</div>
+            <div class="editor-field"><span data-bind="text:Owner.Item2"></span></div>
+            <div class="editor-label">建单时间:</div>
+            <div class="editor-field"><span data-bind="text:CreateTime.Item1"></span></div>
+            <div class="editor-label">建单人:</div>
+            <div class="editor-field"><span data-bind="text:Creator.Name"></span></div>
+            <div class="editor-label">金额:</div>
+            <div class="editor-field"><span data-bind="text:Sum"></span></div>
+            <div class="hr" style="height: 10px;"></div>
+            <fieldset class="mc wp97 pp1">
+                <legend><strong>订单内容:</strong><a href="javascript:addItem()" class="lnk ml10">添加产品</a></legend>
+                <table cellspacing="0" cellpadding="0" style="width:590px;">
+                    <thead>
+                    <tr>
+                        <td>产品</td>
+                        <td>规格</td>
+                        <td>单位</td>
+                        <td>订货数量</td>
+                        <td>单价</td>
+                        <td>金额</td>
+                        <td>供应商库存</td>
+                        <td style="width:30px;" data-bind="visible:$data.Status()=='未提交'"></td>
+                    </tr>
+                    </thead>
+                    <tbody data-bind="foreach:Items">
+                    <tr data-bind="css:{'even':$index()%2!=0}">
+                        <td>
+                            <select data-bind="options:GV.products,optionsValue:'_id',optionsText:'Name',value:RelativeObj.Item1,event:{'change':proSlt}"></select>
+                        </td>
+                        <td data-bind="text:Model"></td>
+                        <td data-bind="text:Unit"></td>
+                        <td><input type="text" data-bind="value:Amount" style="width:40px;"/></td>
+                        <td data-bind="text:UnitPrice"></td>
+                        <td data-bind="text:Sum"></td>
+                        <td data-bind="text:PStorage"></td>
+                        <td data-bind="visible:$parent.Status()=='未提交'">
+                            <a class="ilblk bg-color-red" style="padding: 5px;"
+                               data-bind="click:function(){if(window.confrim('是否删除?')){$parent.Items.remove($data);}}"><b
+                                        class="icon-close fg-color-white"></b></a>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </fieldset>
+            <div class="cb ac pt10" id="d_bts">
+                <input type="button" value="保存" onclick="save()"/>
+                <input class="ml5" type="button" value="提交" onclick="save(1)"/>
+            </div>
+        </div>
+    </div>
+</div>
+<% }
+else{ %>
+<style type="text/css">
+    body { font-size: 16px; }
+    span[class^="icon-"] { font-size: 20px; }
+    .itemC { padding: 3%; width: 94%; line-height: 25px; margin-bottom: 4px; border-radius: 5px; }
+    .bt_itemDel { padding: 15px 10px; position: absolute; bottom: 10px; right: 10px; }
+</style>
+<div class="mc wp96 pp1" id="d_edit">
+    <p>
+        <strong>建单人:</strong><span data-bind="text:Creator.Name"></span>
+        <strong class="ml10">建单时间:</strong><span data-bind="text:CreateTime.Item1"></span>
+    </p>
+
+    <p>
+        <strong>金额合计:</strong><b data-bind="text:Sum" class="fred" style="font-size: 22px;"></b><span>元</span>
+    </p>
+    <fieldset class="wp96 pp1 mc">
+        <legend><strong>单据内容:</strong><a href="javascript:addItem()" class="ml20"><span class="icon-plus
+        fg-color-blue"></span></a></legend>
+        <div class="mc wp98" data-bind="foreach:Items">
+            <div class="border-color-grayDark fg-color-blueDark itemC">
+                <img data-bind="attr:{'src':img}" style="width:25%;" class="fl"/>
+                <div class="fr pr" style="width:73%">
+                    <p>
+                        <b>名称:</b> <span class="bg-color-blueDark fg-color-white"
+                                         data-bind="text:RelativeObj.Item2,click:chgP" style="padding: 10px;"></span>
+                    </p>
+                    <b>规格型号:</b><span data-bind="text:Model"></span><br/>
+                    <b>单价:</b><span data-bind="text:UnitPrice"></span><span>元</span>
+                    <b class="ml10">供应商库存</b><span data-bind="text:PStorage"></span><span data-bind="text:Unit"></span>
+                    <br/>
+                    <b>订货数量:</b>
+                    <span class="icon-minus fg-color-green" data-bind="click:m"></span>
+                    <span data-bind="text:Amount" class="ilblk ac bg-color-gray" style="width:100px; Height:30px;
+                    line-height:30px;  padding:5px; "></span>
+                    <span class="icon-plus fg-color-green" data-bind="click:p"></span><span
+                            data-bind="text:Unit"></span>
+                    <br/>
+                    <b>金额:</b><span data-bind="text:Sum"></span><span>元</span>
+                </div>
+                <span style="display:block; margin-left:6%;" class=" fl mt10 bt bg-color-red fg-color-white"
+                      data-bind="click:function(){$parent.Items.remove($data)}">删除</span>
+
+                <b class="hr"></b>
+            </div>
+        </div>
+    </fieldset>
+    <div class="cb ac " id="d_bts" style="padding: 22px;">
+        <span class="bt bg-color-blueDark fg-color-white" onclick="save()">保存</span>
+        <span class="bt bg-color-blueDark fg-color-white" class="ml5" onclick="save(1)">提交</span>
+    </div>
+</div>
+<ul id="ul_pros" class="hide wp96 mc" data-bind="foreach:$data">
+    <li class=" wp94 pp1 bg-color-gray" data-bind="click:ppSlt" style="margin-bottom: 4px;">
+        <img data-bind="attr:{'src':img}" style="width:20%" class="fl"/>
+
+        <div cl="fl " style="width:75%; margin-left: 2%;">
+            <strong>名称:</strong> <span class="bt" data-bind="text:Name,click:chgP"></span> <br/>
+            <strong>规格型号:</strong><span data-bind="text:Model"></span><br/>
+            <strong>单价:</strong><span data-bind="text:PartnerPrice"></span><span>元</span><br/>
+        </div>
+        <div style="clear: both; height: 1px;"></div>
+    </li>
+</ul>
+<script type="text/javascript">
+    function bindPros(d) {
+        ko.applyBindings(d, document.getElementById('ul_pros'));
+    }
+    function chgP(d) {
+        GV.currentItem = d;
+        showPnl('ul_pros');
+    }
+    function ppSlt(d) {
+        GV.currentItem.RelativeObj.Item1(d._id);
+        GV.currentItem.RelativeObj.Item2(d.Name);
+        GV.currentItem.Model(d.Model);
+        GV.currentItem.Unit(d.Unit);
+        GV.currentItem.UnitPrice(d.PartnerPrice);
+        GV.currentItem.img(d.img);
+        showPnl('d_edit');
+    }
+</script>
+<% } %>
+
+<script type="text/javascript">
+    var u = {_id: '<%=user._id%>', Name: '<%=user.Name%>', Org: {Name: '<%=user.Org.Name%>', Value: '<%=user.Org.Value%>'}};
+    var org = {Name: '<%=org.Name%>', Value: '<%=org._id%>'}, Cts = {Address: '<%=org.Address%>', SMSNum: '<%=org.SMSNum%>'};
+    var bill = new Bill({Item1: org.Value, Item2: org.Name, Item3: 'Org'}, u);
+    bill.Address = ko.observable(Cts.Address);
+    bill.SMSNum = ko.observable(Cts.SMSNum);
+    var defaultAmount = 12;
+    bill.Status('未提交');
+    ko.applyBindings(bill, document.getElementById('d_edit'));
+    $(function () {
+        $.getJSON('/product/get', {t: 'objs', query: {}}, function (d) {
+            _.each(d, function (i) {
+                i.img = 'http://www.ruibaochi.com' + ( i.ImgUrls.length ? i.ImgUrls[0] : '/images/yangpin.png');
+            });
+            GV.products = d;
+            if (typeof(bindPros) != 'undefined') {bindPros(d);}
+            $('#mainContainer').show();
+            $('#d_edit').show();
+        });
+    })
+    function getStorage(id, cb) {
+        async.parallel(
+                {
+                    cs: function (pcb) {
+                        $.getJSON(
+                                '/base/getobjs',
+                                {
+                                    tp: 'Storage', m: 1,
+                                    query: {'RelativeObj.Item1': id,
+                                        $or: [
+                                            {'Org.Value': '0'},
+                                            {'Org.Value': '1'}
+                                        ]
+                                    },
+                                    option: {Useable: 1}
+                                },
+                                function (d) {
+                                    d = d.length ? d.Sum('Useable') : 0;
+                                    pcb(null, d);
+                                });
+                    },
+                    zs: function (pcb) {
+                        $.getJSON('/base/getobjs', {tp: 'Storage', m: 1,
+                            query: {'RelativeObj.Item1': id, 'Org.Value': '<%=user.Org.Value%>'},
+                            option: {Useable: 1}}, function (d) {
+                            d = d.length > 0 ? d.Sum('Useable') : 0;
+                            pcb(null,d)
+                        });
+                    }
+                },
+                function (e, result) {
+                    cb(result);
+                }
+        );
+    }
+    function addItem() {
+        var p = GV.products[0];
+        getStorage(p.__id, function (storage) {
+            var o = new BillItem(
+                    {Item1: p._id, Item2: p.Name, Item3: 'Prodcut'},
+                    p.PartnerPrice, 1, p.Model, p.Unit, true
+            );
+            o.Amount(defaultAmount);
+            o.CompleteAmount = 0;
+            o.img = ko.observable(p.img);
+            o.PStorage=ko.observable(storage.cs);
+            o.CStorage=ko.observable(storage.zs);
+            bill.Items.push(o);
+        })
+    }
+    function p(d) {
+        d.Amount(d.Amount() + defaultAmount)
+    }
+    function m(d) {
+        if (d.Amount() > 0) { d.Amount(d.Amount() - defaultAmount);}
+    }
+    function save(f) {
+        if (f) {
+            bill.Status('待付款');
+        }
+        var m = ko.mapping.toJS(bill);
+        _.each(m.Items, function (i) {
+            i.Amount = Number(i.Amount);
+            i.UnitPrice = Number(i.UnitPrice);
+        });
+        if (_.any(m.Items, function (i) {return i.Amount == 0})) {
+            alert('请输入订货数量!');
+            return;
+        }
+        delete  m.updateFromObj;
+        $.post('/order/postsave', {tp: 'Order', obj: JSON.stringify(m)}, function (d) {
+            alert(d.error || '保存成功!');
+            if (d.msg) {
+                bill._id(d.ID);
+                bill.BillNum(d.BillNum);
+                bindList();
+            }
+        });
+    }
+    function proSlt(d) {
+        var pi = _.find(GV.products, function (i) {return i._id == d.RelativeObj.Item1();});
+        getStorage(pi.RelativeObj.Item1(),function (storage){
+            d.RelativeObj.Item2(pi.Name);
+            d.Model(pi.Model);
+            d.UnitPrice(pi.PartnerPrice);
+            d.img(pi.img);
+            d.PStorage(storage.cs);
+            d.CStorage(storage.zs);
+        })
+    }
+</script>
+
+<% include ../Bottom.ejs %>

@@ -1,0 +1,135 @@
+<% include ../Top.ejs %>
+
+<div class="wp100 hp95">
+    <div class="wp100 hp95 oya">
+        <div class="mc mt10 editor-container"  >
+            <b class="ml10">名称/简码包含:</b><input type="text" id="txt_ac"/><input type="button" value="查询" onclick="q()"/>
+            <input type="button" value="添加合作伙伴" onclick="edit(0)"/>
+        </div>
+        <div class="mt10 mc hide mt10 editor-container" id="d_edit" >
+            <div class="editor-label">ID:</div>
+            <div class="editor-field"><span data-bind="text:_id"></span></div>
+            <div class="editor-label">经销商代码:</div>
+            <div class="editor-field"><input type="text" data-bind="value:OrgNum ,event:{'blur':chkNum}"/></div>
+            <div class="editor-label">名称:</div>
+            <div class="editor-field"><input type="text" data-bind="value:Name"/></div>
+            <div class="editor-label">类型:</div>
+            <div class="editor-field">
+                <select data-bind="value:OrgType">
+                    <option value="授权经销商">授权经销商</option>
+                    <option value="预约经销商">预约经销商</option>
+                </select>
+            </div>
+            <div class="editor-label">合同到期时间:</div>
+            <div class="editor-field"><input data-bind="value:OverTime" id="txt_overTime"/></div>
+            <div class="editor-label">短信接收手机:</div>
+            <div class="editor-field"><input type="text" data-bind="value:SMSNum"/></div>
+            <div class="editor-label">简码:</div>
+            <div class="editor-field"><span data-bind="text:Simcode"></span></div>
+            <div class="editor-label">送货地址:</div>
+            <div class="editor-field"><input type="text" data-bind="value:ShipAddress"/> </div>
+            <div class="hr" style="height: 10px;"></div>
+            <fieldset class="wp97 mc pp1">
+                <legend><strong>区域</strong><a href="javascript:addR()" class="ml10">添加区域</a></legend>
+                <ul data-bind="foreach:Ranges">
+                    <li><span data-bind="xzqh:$data"></span><a
+                                data-bind="click:function(){$parent.Ranges.remove($data);}">删除</a></li>
+                </ul>
+            </fieldset>
+            <div class="cb ac pt10">
+                <input type="button" value="保存" onclick="save()"/>
+               <input type="button" value="删除" onclick="del()" class="ml5  "/>
+            </div>
+        </div>
+    </div>
+</div>
+<script type="text/javascript" src="../javascripts/xzqh.js"></script>
+<script type="text/javascript" src="../javascripts/KOExt.js"></script>
+<script type="text/javascript">
+    $('#txt_ac').autocomplete({
+        source: '/base/getobjsac?tp=Org',
+        minLength: 2,
+        select: function (e, ui) {
+            if (ui.item._id) {
+                edit(ui.item._id);
+            }
+        }
+    });
+    function edit(id) {
+        if (id == 0) {
+            var _d= new Date();
+            _d.setMonth(_d.getMonth()+4);
+           _d= Date.ToDateTimeString(_d, 1, '-');
+            bindObj({_id: '', Name: '', Simcode: '', OrgType: '预约经销商', OverTime: _d, SMSNum: '',ShipAddress:'',OrgNum:'', Ranges: []});
+        }
+        else {
+            $.getJSON('/base/getobj', {tp: 'Org', query: {_id: id}}, bindObj);
+        }
+    }
+    function chkNum(d, e) {
+        $.getJSON('/base/getobj', {tp: 'Org', m: 1, query: {OrgNum: d.OrgNum(), _id: {$ne: d._id()}}}, function (d) {
+            if (d) {
+                alert('代码重复!');
+                e.target.focus()
+            }
+        });
+    }
+    function bindObj(d) {
+        if (GV.mdl) {
+            ko.mapping.fromJS(d, GV.mdl);
+        }
+        else {
+            GV.mdl = ko.mapping.fromJS(d);
+            ko.applyBindings(GV.mdl, document.getElementById('d_edit'));
+            $('#d_edit').show();
+        }
+    }
+    function addR() {
+        GV.mdl.Ranges.push(ko.mapping.fromJS({Name: '', Value: ''}));
+    }
+    function save() {
+        var m = ko.mapping.toJS(GV.mdl);
+        var msg = '';
+        if (!m.Name) {
+            msg = '请输入名称!\r';
+        }
+        if (m.Ranges == 0) {
+            msg = msg + '请选择经销区域!\r';
+        }
+        if (msg) {
+            alert(msg);
+            return;
+        }
+        async.waterfall([
+            function (cb) {
+                if (m._id) {
+                    $.post('/base/postupdate', {tp: 'Org', query: {_id: GV.mdl._id()}, option: JSON.stringify(m)}, function (d) {
+                        cb(d.error, null);
+                    });
+                }
+                else {
+                    cb(null, m);
+                }
+            },
+            function (obj, cb) {
+                if (obj) {
+                    $.post('/base/postinsert', {tp: 'Org', obj: JSON.stringify(obj)}, function (d) {
+                        GV.mdl._id(d.ID);
+                        $.getJSON('/admin/get',{t:'adduser',oid:GV.mdl._id()});
+                        cb(d.error ? d.error : null, null);
+                    })
+                } else {
+                    cb(null, null);
+                }
+            }
+        ], function (e, rs) {
+            alert(e ? e : '保存成功!');
+        });
+    }
+    function del() {
+    }
+    function q(){
+        $("#txt_ac").autocomplete("search" );
+    }
+</script>
+<% include ../Bottom.ejs %>

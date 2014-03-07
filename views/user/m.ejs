@@ -1,0 +1,135 @@
+<% include ../Top.ejs %>
+<style type="text/css">
+    .fnBt {
+        display: none;
+    }
+</style>
+<div class="wp100 hp100">
+    <div class="fl hp98 pp1 oya" id="d_list">
+        <% if(Org.Value == '0'){ %>
+        <select id="slt_Org" onchange="orgChg()"></select>
+        <script type="text/javascript">
+            $.getJSON('/base/getobjs', {tp: 'Org', query: {}, option: {Name: 1}}, function (d) {
+                var _s = '';
+                d.forEach(function (i) {
+                    _s = _s + '<option value="' + i._id + '">' + i.Name + '</option>';
+                });
+                $('#slt_Org').html(_s);
+            })
+        </script>
+        <% }
+        else{ %>
+        <b><%= Org.Name %></b>
+        <% } %>
+        <ul data-bind="foreach:$data">
+            <li class="lh22"><a class="lnk" data-bind="text:Name,click:edit"></a></li>
+        </ul>
+    </div>
+    <!--<iframe src="" frameborder="0" class="" scrolling="auto" id="frm1"-->
+    <!--style="width:20%"></iframe>-->
+    <div class="fr pp1 hp98 " style="width:75%;" id="d_edit">
+        <div class="mc mt10 hide" id="d_dd" style="width:300px;">
+            <div class="editor-label">ID:</div>
+            <div class="editor-field"><span data-bind="text:_id"></span></div>
+            <div class="editor-label">登录名:</div>
+            <div class="editor-field"><input type="text" data-bind="value:Name"/></div>
+            <div class="editor-label">简码:</div>
+            <div class="editor-field"><span type="text" data-bind="text:Simcode"></span></div>
+        </div>
+        <div class="ac pt10 cb">
+            <input type="button" value="添加用户" onclick="edit(0)"/>
+            <input type="button" value="保存" onclick="save()" class="ml5 fnBt"/>
+            <input type="button" value="重置密码" onclick="resetPwd()" class="ml5 fnBt"/>
+            <input type="button" value="删除" onclick="del()" class="ml5 fnBt"/>
+        </div>
+    </div>
+</div>
+<script type="text/javascript">
+    var org = {Name: '<%=Org.Name%>', Value: '<%=Org.Value%>', Type: 'Partner'};
+    var url = '/base/getobj';
+    function bindList() {
+        $.getJSON('/base/getobjs', {tp: 'User', query: {'Org.Value': org.Value}, option: {Name: 1}}, function (d) {
+            if (GV.list) {
+                ko.mapping.fromJS(d, GV.list);
+            }
+            else {
+                GV.list = ko.mapping.fromJS(d);
+                ko.applyBindings(GV.list, document.getElementById('d_list'));
+            }
+        });
+    }
+    function orgChg() {
+        org.Value = $('#slt_Org option:selected').val() || $('#slt_Org option:first').val();
+        bindList();
+    }
+    function edit(id) {
+        if (id == 0) {
+            bindO({_id: '', Name: '', Org: org, Pwd: '8888', Simcode: '', flag: 1});
+        }
+        else {
+            $.getJSON(url, {tp: 'User', m: 1, query: {_id: id._id()}}, bindO);
+        }
+    }
+    function bindO(d) {
+        if (GV.mdl) {
+            ko.mapping.fromJS(d, GV.mdl);
+        }
+        else {
+            GV.mdl = ko.mapping.fromJS(d);
+            ko.applyBindings(GV.mdl, document.getElementById('d_edit'));
+        }
+        $('#d_dd').show();
+        $('.fnBt').show();
+    }
+    function save() {
+        var m = ko.mapping.toJS(GV.mdl);
+        if (!m.Name) {
+            alert('请输入用户名!');
+            return;
+        }
+        async.waterfall([
+            function (cb) {
+                $.getJSON(url, {tp: 'User', query: {'Org.Value': org.Value, Name: m.Name, _id: {$ne: m._id}}, option: {Name: 1}}, function (d) {
+                    cb(d ? '用户名重复!' : null);
+                });
+            },
+            function (cb) {
+
+                    $.post('/base/postsave', {tp: 'User', obj: JSON.stringify(m)}, function (d) {
+                        cb(null, d);
+                    });
+
+            }
+        ], function (e, d) {
+            alert(e|| d.error ||'保存成功!');
+            if (d.msg) {
+                GV.mdl._id(d.ID);
+
+                bindList();
+            }
+        });
+    }
+    function del() {
+        if (window.confirm('是否删除用户?')) {
+            $.getJSON('/base/delete', {tp: 'User', query: {_id: GV.mdl._id()}}, function (d) {
+                if (d.error) {
+                    alert(d.error);
+                    return;
+                }
+                alert('删除完成!');
+                bindList();
+                $('#d_edit').hide();
+                $('.fnBt').hide();
+            });
+        }
+    }
+    function resetPwd() {
+        if (window.confirm('是否重置用户密码?')) {
+            $.getJSON('/user/m?t=resetPwd', {id: GV.mdl._id()}, function (d) {
+                alert('密码重置' + d ? '成功' : '失败' + '!')
+            });
+        }
+    }
+    bindList();
+</script>
+<% include ../Bottom.ejs %>
